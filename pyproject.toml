@@ -1,0 +1,13 @@
+[project]
+name = "spot-uptime-kuma"
+version = "1.0.0"
+description = "SPOT's state report"
+dependencies = [
+    "flask",
+    "bosdyn-api==3.3.2",
+    "bosdyn-client==3.3.2"
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
