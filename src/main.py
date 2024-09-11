@@ -31,10 +31,12 @@ def create_app():
         robot=sdk.create_robot(os.getenv("spot_host"))
         try: 
             authenticate(robot)
-        except Exception as e: 
-            return f"<p> style='font-size:23px'> SPOT STATE: DISCONECTED</p>",404
+            _logger.info(f"Authenticated at {datetime.now()}")
 
-        _logger.info(f"Authenticated at {datetime.now()}")
+        except Exception as e: 
+            _logger.warning(f"SPOT call failed at {datetime.now()}")
+            return f"<p style='font-size:23px;'> SPOT STATE: DISCONECTED </p>",404
+
         robot_state_client=robot.ensure_client(RobotStateClient.default_service_name)
         robot_state=robot_state_client.get_robot_state()
         robot_state=MessageToDict(robot_state) 
@@ -54,22 +56,20 @@ def create_app():
                 content+=comms_state(state,robot_state[state])
                 
             if state=="systemFaultState":
-                content+=system_fault("systemFaultState",robot_state[state])
+                content+=system_fault("systemFaultState",MessageToDict(robot_state_client.get_robot_state().system_fault_state))
                 
             
             if state=="estopStates":
                 content+=estop_state("estopStates",robot_state[state])
                 
 
-            if idx==5:
-                content+=f"<p> {state} <br> {robot_state[state]} </p> "
+            if state=="kinematicState":
+                
+                # content+=f"<p> {state} <br> {robot_state[state]} </p> "
                 content+=kinamatic_state("kinematicState",robot_state[state])
-
                 break
 
-       
-
-
+    
             
         return f"<div style='padding:5px;'> {content} </div>"
         
@@ -77,8 +77,9 @@ def create_app():
 
 def kinamatic_state(state:str,data:dict):
     jointStates,velocityOfBodyInVision,velocityOfBodyInOdom,acquisitionTimestamp,transformsSnapshot=data.keys()
-    print(data[jointStates])
     header="<p style='font-size:20px; font-weight:bold'> Kinematic State </p>"
+
+    # joint statte 
     list="<p> Joint States<p>"
     list+="<table style='width:100%;border:1px solid black;'><tr>"
     for js in data[jointStates]:
@@ -91,6 +92,50 @@ def kinamatic_state(state:str,data:dict):
             list+=f"<td style= 'border:1px solid black';>{v}</td>"
         list+="</tr>"
     list+="</table>"
+
+    list+="<p> Velocity Of Body In Vision<p>"
+    list+="<table style='border:1px solid black;'><tr>"
+    for h in ["name","x","y","z"]:
+        list+=f"<th style='border:1px solid black;'>{h}</th>"
+    list+="</tr>"
+    list+="<tr>"
+    for idx,v in enumerate(data[velocityOfBodyInVision].values()):
+        if idx==0:
+            list+=f"<td style='border:1px solid black;'> linear</td>"
+        else: 
+            list+=f"<td style='border:1px solid black;'> angular</td>"
+
+        for vv in v.values():
+            list+= f"<td style='border:1px solid black;'>{vv}</td>"
+        
+        list+="</tr>"
+    list+="</table>"
+
+    list+="<p> Velocity Of Body In Odom<p>"
+    list+="<table style='border:1px solid black;'><tr>"
+    for h in ["name","x","y","z"]:
+        list+=f"<th style='border:1px solid black;'>{h}</th>"
+    list+="</tr>"
+    list+="<tr>"
+    for idx,v in enumerate(data[velocityOfBodyInOdom].values()):
+        if idx==0:
+            list+=f"<td style='border:1px solid black;'> linear</td>"
+        else: 
+            list+=f"<td style='border:1px solid black;'> angular</td>"
+
+        for vv in v.values():
+            list+= f"<td style='border:1px solid black;'>{vv}</td>"
+        
+        list+="</tr>"
+    list+="</table>"
+
+    list+="<p> Transform Snapshot<p>"
+    list+="<p>"
+    for k in data[transformsSnapshot].values():
+        list+=f"<span> {k} </span>"
+    list+="</p>"
+
+
     return f"<div>{header}{list}</div>"
 
 
@@ -129,25 +174,9 @@ def comms_state(state:str,data:list):
 def system_fault(state:str,data):
     assert state=="systemFaultState"
     header="<p style='font-size:20px; font-weight:bold'> Sytem Fault </p>"
-    list="<p> Fault<p>"
+    list=""
     for d in data:
-        
-        if d=="faults":
-            list+="<ul>"
-            for fault in data[d]:
-                list+="<li>"
-                for k,v in fault.items():
-                    list+=f"<span style='padding:5px;'> <b>{k}</b> : {v} </span>"
-                list+="</li>"
-            list+="</ul>"
-        else: 
-            list+="<p> Aggregated <p>"
-            list+="<ul>"
-            for k,v in data[d].items():
-                list+=f"<li> {k} : {v} </li>"
-
-            list+="</ul>"
-
+        list+=f"<p> {d} <br> {data[d]} </p>"
     return f"<div>{header}{list}</div>"
 
 def estop_state(state,data):
